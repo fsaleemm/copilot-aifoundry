@@ -1,0 +1,17 @@
+POST http://localhost:7075/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "what is the northwind plan?",
+  "agentid": "asst_Aqvo3QPJreGvUsqqRZ1BLGPe",
+  "threadid": "thread_yafFVou6cl2sKSRKKtcg0TBj"
+}
+
+
+###
+
+POST https://fapp-agent-f4t.azurewebsites.net/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "what is my hire date?",
+  "agentid": "asst_Aqvo3QPJreGvUsqqRZ1BLGPe"
+}
