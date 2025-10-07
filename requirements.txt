@@ -3,6 +3,6 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
-azure-ai-projects==1.0.0b10
+azure-ai-projects
 azure-identity
 aiohttp

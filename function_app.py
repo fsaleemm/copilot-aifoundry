@@ -32,18 +32,20 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400
         )
 
-    conn_str = os.environ.get("AIProjectConnString")
-    if not conn_str:
-        logging.error("AIProjectConnString is not set in local.settings.json or environment variables.")
+    endpoint = os.environ.get("AIProjectEndpoint")
+    
+    if not endpoint:
+        logging.error("AIProjectEndpoint must be set in environment variables.")
         return func.HttpResponse(
-            "Internal Server Error: Missing AIProjectConnString.",
+            "Internal Server Error: Missing AIProjectEndpoint configuration.",
             status_code=500
         )
 
-    try:            
-        project_client = AIProjectClient.from_connection_string(
+    try:
+        # Use endpoint-based authentication (SDK 1.0+)
+        project_client = AIProjectClient(
+            endpoint=endpoint,
             credential=DefaultAzureCredential(),
-            conn_str=conn_str,
         )
 
         agent = project_client.agents.get_agent(agentid)
@@ -54,55 +56,51 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
                 status_code=404
             )
 
-        # Fix for the 'create_thread' method issue
+        # Create or use existing thread
         if not threadid:
-            # Create a new thread using the correct API
-            try:
-                # Try the newer API if available
-                thread_response = project_client.agents.create_thread()
-                thread_id = thread_response.id
-            except AttributeError:
-                # Fallback to direct REST API call if needed
-                logging.info("Using alternative method to create thread")
-                thread_response = project_client.agents.threads.create()
-                thread_id = thread_response.id
+            # Create a new thread using the SDK 1.0+ API
+            thread_response = project_client.agents.threads.create()
+            thread_id = thread_response.id
         else:
             thread_id = threadid
             
-        # Create a message in the thread
-        message = project_client.agents.create_message(
+        # Create a message in the thread (using SDK 1.0+ API)
+        message = project_client.agents.messages.create(
             thread_id=thread_id,
             role="user",
             content=message
         )
 
-        # Process the message with the agent
-        project_client.agents.create_and_process_run(
+        # Process the message with the agent (using SDK 1.0+ API)
+        project_client.agents.runs.create_and_process(
             thread_id=thread_id,
             agent_id=agent.id
         )
 
-        # Get the messages from the thread
-        messages = project_client.agents.list_messages(thread_id=thread_id)
-        messages_dict = messages.as_dict()
+        # Get the messages from the thread (using SDK 1.0+ API)
+        messages = project_client.agents.messages.list(thread_id=thread_id)
         
         # Extract the latest assistant message
         assistant_text = ""
-        assistant_messages = [m for m in messages_dict['data'] if m.get('role') == 'assistant']
         
-        if assistant_messages:
-            # Get the latest assistant message (first in the list since they're ordered by created_at desc)
-            latest_assistant = assistant_messages[0]
-            
-            # Extract text from content
-            content_parts = latest_assistant.get('content', [])
-            text_parts = []
-            for part in content_parts:
-                if part.get('type') == 'text' and 'text' in part:
-                    text_parts.append(part['text']['value'])
-            
-            assistant_text = " ".join(text_parts) if text_parts else "No text content found."
-        else:
+        # Iterate through messages to find the latest assistant message
+        for msg in messages:
+            if msg.role == "assistant":
+                # Use the new text_messages property for easier access
+                if hasattr(msg, 'text_messages') and msg.text_messages:
+                    # Get the latest text message
+                    latest_text = msg.text_messages[-1]
+                    assistant_text = latest_text.text.value
+                elif hasattr(msg, 'content') and msg.content:
+                    # Fallback to content parsing if text_messages not available
+                    text_parts = []
+                    for part in msg.content:
+                        if hasattr(part, 'type') and part.type == 'text' and hasattr(part, 'text'):
+                            text_parts.append(part.text.value)
+                    assistant_text = " ".join(text_parts) if text_parts else "No text content found."
+                break
+        
+        if not assistant_text:
             assistant_text = "No assistant message found."
 
         # Return the response with the thread ID for continuity
