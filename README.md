@@ -2,27 +2,30 @@
 
 ## Overview
 
-The `azure-ai-foundry-agent` is a Python-based Azure Function application designed to interact with Azure AI Projects. It provides an HTTP-triggered endpoint for processing user messages and generating responses using AI agents.
+The `azure-ai-foundry-agent` is a Python-based Azure Function application that uses the **Microsoft Foundry Agent Framework SDK** (`agent-framework-azure-ai`) to create and interact with AI Foundry agents dynamically. It provides an HTTP-triggered endpoint for processing user messages and generating responses using ephemeral AI agents.
 
 This application is built to:
-1. Handle user requests with message input.
-2. Retrieve or create an AI agent thread.
-3. Interact with the Azure AI Project API to process messages.
-4. Generate responses based on AI agent capabilities.
+1. Handle user requests with message input and optional agent configuration.
+2. Create AI agents on-demand using the Foundry Agent Framework.
+3. Process user messages through the agent's conversational interface.
+4. Generate intelligent responses based on configurable agent instructions.
 
 ## Features
 
 - **HTTP Trigger**: Provides an anonymous endpoint `/agent_httptrigger` to accept user inputs.
-- **Integration with Azure AI Projects**: Uses the `azure-ai-projects` library to manage AI agents, threads, and messages.
+- **Microsoft Foundry Agent Framework**: Uses the preview `agent-framework-azure-ai` SDK to create and manage AI agents dynamically.
+- **Flexible Agent Configuration**: Supports custom agent names, instructions, and model deployments.
+- **Conversation Continuity**: Manages thread serialization for multi-turn conversations.
 - **Error Handling**: Includes robust error checking and logging to ensure smooth operation.
 
 ## Prerequisites
 
 To run this project, ensure that you have:
 1. Azure Functions Core Tools installed.
-2. Python 3.8 or later.
-3. Required libraries listed in `requirements.txt`.
-4. Azure Subscription to set up required resources like AI Projects.
+2. Python 3.9 or later (required for agent-framework-azure-ai).
+3. Required libraries listed in `requirements.txt` (install with `--pre` flag for preview packages).
+4. Azure AI Foundry project with a deployed model.
+5. Azure Subscription with appropriate permissions.
 
 ## Installation
 
@@ -32,15 +35,21 @@ To run this project, ensure that you have:
     cd azure-ai-foundry-agent
     ```
 
-2. Install dependencies:
+2. Install dependencies (note the `--pre` flag for preview packages):
     ```bash
-    pip install -r requirements.txt
+    pip install --pre -r requirements.txt
     ```
 
-3. Set up environment variables:
-    - Add `AIProjectConnString` to your local settings or environment variables. This is crucial for connecting to Azure AI Projects.
+3. Set up environment variables in `local.settings.json`:
+    - `AIProjectEndpoint`: Your Azure AI Foundry project endpoint (e.g., `https://your-project.services.ai.azure.com/api/projects/your-project`)
+    - `ModelDeploymentName`: Model deployment name (e.g., `gpt-4o-mini`)
 
-4. Run the Azure Function locally:
+4. Authenticate with Azure:
+    ```bash
+    az login
+    ```
+
+5. Run the Azure Function locally:
     ```bash
     func start
     ```
@@ -53,17 +62,18 @@ To run this project, ensure that you have:
 
 ### Query Parameters
 
-| Name       | Type   | Description                          |
-|------------|--------|--------------------------------------|
-| `message`  | string | The user message to process.         |
-| `agentid`  | string | The ID of the AI agent.              |
-| `threadid` | string | (Optional) The thread ID for context.|
+| Name           | Type   | Description                                                      |
+|----------------|--------|------------------------------------------------------------------|
+| `message`      | string | **Required.** The user message to process.                      |
+| `agent_name`   | string | (Optional) Name of the agent to create. Default: "AssistantAgent" |
+| `instructions` | string | (Optional) Custom instructions for the agent. Default: "You are a helpful assistant." |
+| `threadid`     | string | (Optional) Thread ID for conversation continuity (future use).   |
 
 ### Request Example
 
 ```json
 {
   "message": "Hello, AI Agent!",
-  "agentid": "agent123",
-  "threadid": "thread456"
+  "agent_name": "MyCustomAgent",
+  "instructions": "You are a friendly assistant who speaks in a casual tone."
 }

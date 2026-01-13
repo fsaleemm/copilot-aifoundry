@@ -3,6 +3,13 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
+
+# Microsoft Foundry Agent Framework SDK (preview)
+# Note: Install with --pre flag to get preview versions:
+#   pip install --pre -r requirements.txt
+agent-framework-azure-ai
+
+# Azure authentication and project management
 azure-ai-projects
 azure-identity
 aiohttp

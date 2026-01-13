@@ -1,4 +1,4 @@
-POST http://localhost:7075/api/agent_httptrigger HTTP/1.1
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
 
 {
   "message": "what is the northwind plan?",
@@ -15,3 +15,36 @@ POST https://fapp-agent-f4t.azurewebsites.net/api/agent_httptrigger HTTP/1.1
   "message": "what is my hire date?",
   "agentid": "asst_Aqvo3QPJreGvUsqqRZ1BLGPe"
 }
+
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "Hello, can you help me?",
+  "agent_name": "HRAssistantExplicitMessages102",
+  "instructions": "You are a friendly support assistant."
+}
+
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "what are northwind plans?",
+  "agent_name": "Agent-001",
+  "instructions": "You are an AI assistant that answer questions about HR benefits and health plan details. End your answer witha fun fact."
+}
+
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "what are northwind plans?",
+  "instructions": "You are an AI assistant that answer questions about HR benefits and health plan details. End your answer with a fun fact."
+}
+
