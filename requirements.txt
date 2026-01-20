@@ -10,6 +10,6 @@ azure-functions
 agent-framework-azure-ai
 
 # Azure authentication and project management
-azure-ai-projects
+azure-ai-projects>=2.0.0b1
 azure-identity
 aiohttp
