@@ -48,3 +48,33 @@ POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
   "instructions": "You are an AI assistant that answer questions about HR benefits and health plan details. End your answer with a fun fact."
 }
 
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "who is my manager",
+  "agent_name": "NewAgent007",
+  "parameters": {
+    "user_id": "SHSU",
+    "user_full_name": "HSU, Susan"
+  }
+}
+
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "who is my manager",
+  "agent_name": "NewAgent008",
+  "parameters": {
+    "user_id": "SCHOY",
+    "user_full_name": "CHOY, Steven"
+  },
+  "threadid": "conv_688bdadc0a6b7de600jqxpMEXv2QY6NELvAutatlPUUOBqehPw"
+}
+
+

@@ -2,10 +2,12 @@ import azure.functions as func
 import logging
 from agent_framework.azure import AzureAIClient
 from azure.identity.aio import DefaultAzureCredential as AsyncDefaultAzureCredential
+from azure.identity import DefaultAzureCredential
 import os
 import json
 import asyncio
 from pathlib import Path
+from azure.ai.projects import AIProjectClient
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
@@ -99,16 +101,52 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         # Run the async agent interaction
-        result = asyncio.run(_interact_with_agent(
+        project_client = AIProjectClient(
             endpoint=endpoint,
-            model_deployment=model_deployment,
-            agent_name=agent_name,
-            instructions=instructions,
-            user_message=message,
-            thread_id=threadid,
-            agent_id=agent_id
-        ))
+            credential=DefaultAzureCredential(),
+        )
+
+        # Get an existing agent
+        agent = project_client.agents.get(agent_name=agent_id)
+
+        # Get the OpenAI client for responses
+        openai_client = project_client.get_openai_client()
+
+        if threadid:
+            # Continue existing conversation
+            conversation_id = threadid
+            # get the conversation to ensure it exists
+            conversation = openai_client.conversations.retrieve(conversation_id)
+
+            # Add the new user message to the existing conversation
+            openai_client.conversations.items.create(
+                conversation_id=conversation_id,
+                items=[{"type": "message", "role": "user", "content": message}]
+            )
+            
+        else:
+            # Create a conversation for context persistence
+            conversation = openai_client.conversations.create(
+                items=[{"type": "message", "role": "system", "content": instructions},
+                    {"type": "message", "role": "user", "content": message}],
+            )
+
+            conversation_id = conversation.id
         
+        response = openai_client.responses.create(
+            conversation=conversation_id,
+            input="",  # Empty since we already added the message to the conversation
+            extra_body={
+                "agent": {"type": "agent_reference", "name": agent.name},
+            }
+        )
+
+        result = {
+        "message": response.output_text,
+        "threadId": response.conversation.id
+        }
+
+
         return func.HttpResponse(
             json.dumps(result, ensure_ascii=False),
             status_code=200,
@@ -124,104 +162,3 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             mimetype="application/json"
         )
-
-
-
-def load_openapi_spec(spec_file_path: str | Path) -> dict:
-    """Load an OpenAPI specification from a JSON or YAML file."""
-    spec_path = Path(spec_file_path)
-    
-    if not spec_path.exists():
-        raise FileNotFoundError(f"OpenAPI spec file not found: {spec_path}")
-    
-    with open(spec_path, "r", encoding="utf-8") as f:
-        if spec_path.suffix.lower() in [".yaml", ".yml"]:
-            import yaml
-            return yaml.safe_load(f)
-        else:
-            return json.load(f)
-
-
-async def _interact_with_agent(
-    endpoint: str,
-    model_deployment: str,
-    agent_name: str,
-    instructions: str,
-    user_message: str,
-    thread_id: str = None,
-    agent_id: str = None,
-    openapi_spec_path: str | Path = "hr_api_spec.json"
-) -> dict:
-    """
-    Uses an existing AI Foundry agent by ID and processes a user message.
-    
-    The agent must already exist in Azure AI Foundry. Provide agent_id via:
-    - Query parameter: agentid
-    - Environment variable: AGENT_ID
-    
-    Instructions are optional runtime overrides and don't modify the agent definition.
-    """
-    
-    if not agent_id:
-        raise ValueError("agent_id is required. Provide it via 'agentid' parameter or AGENT_ID environment variable.")
-    
-    hr_api_spec = load_openapi_spec(openapi_spec_path)
-    
-    async with AsyncDefaultAzureCredential() as credential:
-        try:
-            # Use existing agent by ID - preserves all tools and KBs
-            # Instructions are runtime overrides only
-            async with AzureAIClient(
-                project_endpoint=endpoint,
-                model_deployment_name=model_deployment,
-                credential=credential,
-            ).create_agent(
-                agent_id=agent_id,
-                name=agent_name,
-                instructions=instructions if instructions else None,
-                tools={
-                "type": "openapi",
-                "openapi": {
-                    "name": "hr_info_given_userid",
-                    "spec": hr_api_spec,
-                    "description": "Get HR benefits and profile information for an employee",
-                    "auth": {"type": "anonymous"},
-                    },
-                },
-            ) as agent:
-                logging.info(f"Using existing agent: {agent_id}")
-                return await _process_agent_message(agent, user_message, thread_id, agent_name, model_deployment, agent_id)
-        except Exception as e:
-            error_msg = str(e)
-            if "not found" in error_msg.lower() or "404" in error_msg or "does not exist" in error_msg.lower():
-                raise ValueError(f"Agent with ID '{agent_id}' does not exist in the Azure AI Foundry project. Please verify the agent ID.")
-            raise
-
-
-
-async def _process_agent_message(agent, user_message: str, thread_id: str, agent_name: str, model_deployment: str, agent_id: str = None) -> dict:
-    """Process a message with the agent."""
-    # Handle thread continuation or create new thread
-    if thread_id:
-        logging.info(f"Thread ID provided but creating new conversation context: {thread_id}")
-        thread = agent.get_new_thread()
-    else:
-        thread = agent.get_new_thread()
-    
-    # Run the agent with the user message
-    result = await agent.run(user_message, thread=thread)
-    
-    # Serialize thread for potential continuation
-    thread_data = await thread.serialize()
-    
-    response = {
-        "message": result.text,
-        "threadId": thread_data.get("id", "new"),
-        "agentName": agent_name,
-        "model": model_deployment
-    }
-    
-    if agent_id:
-        response["agentId"] = agent_id
-    
-    return response
