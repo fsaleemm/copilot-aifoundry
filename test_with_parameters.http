@@ -1,0 +1,50 @@
+### Test 1: User asking about manager (with user context)
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "Who is my manager?",
+  "parameters": {
+    "user_id": "SHSU",
+    "user_full_name": "HSU, Susan"
+  }
+}
+
+###
+
+### Test 2: User asking about hire date (different user)
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "What is my hire date?",
+  "parameters": {
+    "user_id": "SCHOY",
+    "user_full_name": "Choy, Steven"
+  }
+}
+
+###
+
+### Test 3: Multi-turn conversation (with thread continuation)
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "What benefits do I have?",
+  "threadid": "thread_xyz123",
+  "parameters": {
+    "user_id": "JDOE",
+    "user_full_name": "Doe, John"
+  }
+}
+
+###
+
+### Test 4: Missing parameters (should return 400 error)
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "Who is my manager?"
+}

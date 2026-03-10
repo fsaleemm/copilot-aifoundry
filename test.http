@@ -68,13 +68,26 @@ POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
 POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
 
 {
-  "message": "who is my manager",
-  "agent_name": "NewAgent008",
+  "message": "what is my hiring date",
+  "agent_name": "PA-test-001",
   "parameters": {
-    "user_id": "SCHOY",
-    "user_full_name": "CHOY, Steven"
+    "user_id": "RSHIH",
+    "user_full_name": "SHIH, Roger"
   },
-  "threadid": "conv_688bdadc0a6b7de600jqxpMEXv2QY6NELvAutatlPUUOBqehPw"
+  "threadid": ""
 }
 
 
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "Compare northwind plus plan and standard plan",
+  "agent_name": "Teams-demo-001",
+  "parameters": {
+    "user_id": "JDOE",
+    "username": "DOE, John"
+  },
+  "threadid": ""
+}
