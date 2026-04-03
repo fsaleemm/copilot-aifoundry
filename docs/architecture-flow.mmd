@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant Client as Client (Browser / REST / App)
+    participant Func as Azure Function /api/agent_httptrigger
+    participant AI as Azure AI Foundry (AI Project Client)
+
+    Note over Client,AI: Required inputs: message + agentid (threadid optional)
+
+    Client->>+Func: POST /api/agent_httptrigger { message, agentid, threadid? }
+    Func->>Func: Validate inputs (message and agentid required)
+
+    alt Missing message or agentid
+        Func-->>Client: 400 Bad Request
+    end
+
+    Func->>+AI: Get Agent by agentid
+    AI-->>-Func: Agent details
+
+    alt Agent not found
+        Func-->>Client: 404 Not Found
+    end
+
+    alt threadid not provided
+        Func->>+AI: Create new Thread
+        AI-->>-Func: New thread_id
+    else threadid provided
+        Note over Func: Use existing thread_id
+    end
+
+    Func->>AI: Create Message in Thread (role: user, content: message)
+    Func->>+AI: Create and Process Run (thread_id, agent_id)
+    AI-->>-Func: Run completed
+
+    Func->>+AI: List Messages in Thread
+    AI-->>-Func: Messages list
+
+    Func->>Func: Extract latest assistant reply
+
+    Func-->>-Client: 200 OK { message, threadId }
+
+    Note over Client: Use returned threadId in next request for conversation continuity
