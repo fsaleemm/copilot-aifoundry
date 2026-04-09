@@ -42,71 +42,60 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     try:
-        # Use endpoint-based authentication (SDK 1.0+)
+        # Use endpoint-based authentication (SDK 2.0+)
         project_client = AIProjectClient(
             endpoint=endpoint,
             credential=DefaultAzureCredential(),
         )
 
-        agent = project_client.agents.get_agent(agentid)
-        if not agent:
-            logging.error(f"Agent with ID {agentid} not found.")
-            return func.HttpResponse(
-                f"Agent with ID {agentid} not found.",
-                status_code=404
-            )
+        openai_client = project_client.get_openai_client()
 
-        # Create or use existing thread
-        if not threadid:
-            # Create a new thread using the SDK 1.0+ API
-            thread_response = project_client.agents.threads.create()
-            thread_id = thread_response.id
+        # agentid format: "name:version" or just "name"
+        if ":" in agentid:
+            agent_name, agent_version = agentid.split(":", 1)
         else:
-            thread_id = threadid
-            
-        # Create a message in the thread (using SDK 1.0+ API)
-        message = project_client.agents.messages.create(
-            thread_id=thread_id,
-            role="user",
-            content=message
-        )
+            agent_name = agentid
+            agent_version = None
 
-        # Process the message with the agent (using SDK 1.0+ API)
-        project_client.agents.runs.create_and_process(
-            thread_id=thread_id,
-            agent_id=agent.id
-        )
+        # Build agent reference
+        agent_ref = {"name": agent_name, "type": "agent_reference"}
+        if agent_version:
+            agent_ref["version"] = agent_version
 
-        # Get the messages from the thread (using SDK 1.0+ API)
-        messages = project_client.agents.messages.list(thread_id=thread_id)
-        
-        # Extract the latest assistant message
-        assistant_text = ""
-        
-        # Iterate through messages to find the latest assistant message
-        for msg in messages:
-            if msg.role == "assistant":
-                # Use the new text_messages property for easier access
-                if hasattr(msg, 'text_messages') and msg.text_messages:
-                    # Get the latest text message
-                    latest_text = msg.text_messages[-1]
-                    assistant_text = latest_text.text.value
-                elif hasattr(msg, 'content') and msg.content:
-                    # Fallback to content parsing if text_messages not available
-                    text_parts = []
-                    for part in msg.content:
-                        if hasattr(part, 'type') and part.type == 'text' and hasattr(part, 'text'):
-                            text_parts.append(part.text.value)
-                    assistant_text = " ".join(text_parts) if text_parts else "No text content found."
-                break
-        
+        # Create response using the OpenAI Responses API with agent reference
+        create_kwargs = {
+            "input": [{"role": "user", "content": message}],
+            "extra_body": {"agent_reference": agent_ref},
+        }
+        if threadid:
+            create_kwargs["previous_response_id"] = threadid
+
+        response = openai_client.responses.create(**create_kwargs)
+
+        # Build a map of annotations for citation replacement
+        annotations_map = {}
+        for item in response.output:
+            if item.type == "message" and item.role == "assistant":
+                for content_block in item.content:
+                    if hasattr(content_block, "annotations") and content_block.annotations:
+                        for ann in content_block.annotations:
+                            if ann.type == "url_citation":
+                                citation_text = content_block.text[ann.start_index:ann.end_index]
+                                md_link = f"[{ann.title}]({ann.url})"
+                                annotations_map[citation_text] = md_link
+
+        # Replace citations in the output text
+        assistant_text = response.output_text
+        for citation, md_link in annotations_map.items():
+            assistant_text = assistant_text.replace(citation, md_link)
+
         if not assistant_text:
             assistant_text = "No assistant message found."
 
         # Return the response with the thread ID for continuity
         response_data = {
             "message": assistant_text,
-            "threadId": thread_id
+            "threadId": response.id
         }
         
         return func.HttpResponse(
