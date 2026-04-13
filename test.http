@@ -15,3 +15,12 @@ POST https://fapp-agent-f4t.azurewebsites.net/api/agent_httptrigger HTTP/1.1
   "message": "what is my hire date?",
   "agentid": "asst_Aqvo3QPJreGvUsqqRZ1BLGPe"
 }
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+
+{
+  "message": "who is the director?",
+  "agentid": "demo3"
+}
