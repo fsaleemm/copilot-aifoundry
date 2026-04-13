@@ -13,5 +13,34 @@ POST https://fapp-agent-f4t.azurewebsites.net/api/agent_httptrigger HTTP/1.1
 
 {
   "message": "what is my hire date?",
-  "agentid": "asst_Aqvo3QPJreGvUsqqRZ1BLGPe"
+  "agentid": "Agent-008"
+}
+
+
+###
+
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "what is my hire date?",
+  "agentid": "Agent-008",
+  "parameters": {
+    "user_id": "ABDOE",
+    "username": "ABJohn Doe"
+  }
+}
+
+
+###
+POST http://localhost:7071/api/agent_httptrigger HTTP/1.1
+Content-Type: application/json
+
+{
+  "message": "what is my hire date?",
+  "agentid": "Agent-008",
+  "parameters": {
+    "user_id": "JDOE",
+    "username": "John Doe"
+  }
 }

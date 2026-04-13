@@ -14,6 +14,7 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
     message = req.params.get('message')
     agentid = req.params.get('agentid')
     threadid = req.params.get('threadid')
+    parameters = None
     
     if not message or not agentid:
         try:
@@ -25,12 +26,38 @@ def agent_httptrigger(req: func.HttpRequest) -> func.HttpResponse:
             message = req_body.get('message')
             agentid = req_body.get('agentid')
             threadid = req_body.get('threadid')
+            parameters = req_body.get('parameters')  # JSON object with name-value pairs
 
     if not message or not agentid:
         return func.HttpResponse(
-            "Pass in a message and agentid in the query string or in the request body for a personalized response.",
-            status_code=400
+            json.dumps({
+                "error": "Missing required parameters 'message' and 'agentid'",
+                "usage": "Provide 'message' and 'agentid' in query string or request body. Optional: 'threadid', 'parameters'"
+            }),
+            status_code=400,
+            mimetype="application/json"
         )
+
+    # Apply message template if configured
+    # MESSAGE_TEMPLATE example: "user_id: {user_id}, username: {username}, question: {message}"
+    message_template = os.environ.get("MESSAGE_TEMPLATE")
+    if message_template:
+        template_vars = {"message": message}
+        if parameters and isinstance(parameters, dict):
+            template_vars.update(parameters)
+        try:
+            message = message_template.format(**template_vars)
+            logging.info(f"Applied message template with variables: {list(template_vars.keys())}")
+        except KeyError as e:
+            return func.HttpResponse(
+                json.dumps({
+                    "error": f"Missing required parameter for message template: {str(e)}",
+                    "provided_parameters": list(template_vars.keys()),
+                    "template": message_template
+                }),
+                status_code=400,
+                mimetype="application/json"
+            )
 
     endpoint = os.environ.get("AIProjectEndpoint")
     
